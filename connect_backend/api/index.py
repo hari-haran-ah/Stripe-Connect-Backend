@@ -11,7 +11,8 @@ load_dotenv()
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 # 🏪 Zara Connected Account ID
-ZARA_ACCOUNT_ID = "acct_1T1ModAo96pK8pjw"
+# 🏪 Zara Connected Account ID
+ZARA_ACCOUNT_ID = os.getenv("ZARA_ACCOUNT_ID")
 
 app = FastAPI()
 
