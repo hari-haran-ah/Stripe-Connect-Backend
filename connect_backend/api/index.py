@@ -70,7 +70,7 @@ def create_checkout_session(data: CheckoutRequest):
                 'quantity': item.quantity,
             })
 
-        platform_fee = 10000
+        platform_fee = 1000
 
         session_args = {
             'payment_method_types': ['card'],
