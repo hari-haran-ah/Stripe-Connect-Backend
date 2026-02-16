@@ -127,6 +127,7 @@ def create_portal_session(data: PortalRequest):
 
 
 # ----------- STRIPE WEBHOOK (IMPORTANT) -----------
+# ----------- STRIPE WEBHOOK (FULL CONNECT SUPPORT) -----------
 
 @app.post("/webhook")
 async def stripe_webhook(request: Request):
@@ -134,9 +135,12 @@ async def stripe_webhook(request: Request):
     sig_header = request.headers.get("stripe-signature")
     endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
 
+    # Step 1: Verify webhook signature
     try:
         event = stripe.Webhook.construct_event(
-            payload, sig_header, endpoint_secret
+            payload,
+            sig_header,
+            endpoint_secret
         )
     except ValueError as e:
         print("❌ Webhook Error: Invalid payload")
@@ -145,13 +149,80 @@ async def stripe_webhook(request: Request):
         print("❌ Webhook Error: Invalid signature")
         raise HTTPException(status_code=400, detail="Invalid signature")
 
-    if event["type"] == "payment_intent.succeeded":
-        payment_intent = event["data"]["object"]
-        print(f"💰 Payment Succeeded (Intent): {payment_intent['id']}")
-    
-    elif event["type"] == "checkout.session.completed":
+    # Step 2: Detect account (Platform or Connected)
+    connected_account = event.get("account", "platform")
+
+    print("========================================")
+    print(f"🔔 Webhook Event Received")
+    print(f"📌 Event Type: {event['type']}")
+    print(f"🏪 Account ID: {connected_account}")
+    print("========================================")
+
+    # Step 3: Handle different event types
+
+    # Checkout completed
+    if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
-        print(f"✅ Checkout Session Completed: {session['id']}")
 
+        print("✅ Checkout Session Completed")
+        print(f"Session ID: {session['id']}")
+        print(f"Customer ID: {session.get('customer')}")
+        print(f"Amount Total: {session.get('amount_total')}")
+        print(f"Payment Intent: {session.get('payment_intent')}")
+
+        # TODO: Save order in database
+
+
+    # Payment succeeded
+    elif event["type"] == "payment_intent.succeeded":
+        payment_intent = event["data"]["object"]
+
+        print("💰 Payment Intent Succeeded")
+        print(f"PaymentIntent ID: {payment_intent['id']}")
+        print(f"Amount: {payment_intent['amount']}")
+        print(f"Currency: {payment_intent['currency']}")
+        print(f"Customer: {payment_intent.get('customer')}")
+
+        # TODO: Update payment status in database
+
+
+    # Charge succeeded
+    elif event["type"] == "charge.succeeded":
+        charge = event["data"]["object"]
+
+        print("💳 Charge Succeeded")
+        print(f"Charge ID: {charge['id']}")
+        print(f"Amount: {charge['amount']}")
+        print(f"Transfer: {charge.get('transfer')}")
+
+        # TODO: Save charge info
+
+
+    # Transfer created (Connect transfer to Zara account)
+    elif event["type"] == "transfer.created":
+        transfer = event["data"]["object"]
+
+        print("🔁 Transfer Created to Connected Account")
+        print(f"Transfer ID: {transfer['id']}")
+        print(f"Amount: {transfer['amount']}")
+        print(f"Destination: {transfer['destination']}")
+
+        # TODO: Save transfer record
+
+
+    # Transfer paid
+    elif event["type"] == "transfer.paid":
+        transfer = event["data"]["object"]
+
+        print("🏦 Transfer Paid")
+        print(f"Transfer ID: {transfer['id']}")
+        print(f"Amount: {transfer['amount']}")
+
+        # TODO: Confirm transfer
+
+
+    else:
+        print(f"ℹ️ Unhandled event type: {event['type']}")
+
+    # Step 4: Return success response
     return {"status": "success"}
-
