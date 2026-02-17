@@ -11,7 +11,6 @@ load_dotenv()
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 # 🏪 Zara Connected Account ID
-# 🏪 Zara Connected Account ID
 ZARA_ACCOUNT_ID = os.getenv("ZARA_ACCOUNT_ID")
 
 app = FastAPI()
@@ -28,7 +27,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
+def calculate_platform_fee(amount):
+    if amount <= 10000:
+        return 1000
+    elif amount <= 20000:
+        return 1500
+    else:
+        return 2000
 
 @app.get("/")
 def home():
@@ -37,7 +42,6 @@ def home():
 from typing import List
 
 # ----------- REQUEST MODELS -----------
-
 class CartItem(BaseModel):
     name: str
     price: float
@@ -57,7 +61,11 @@ class PortalRequest(BaseModel):
 def create_checkout_session(data: CheckoutRequest):
     try:
         line_items = []
+        total_amount = 0
         for item in data.items:
+            unit_amount = int(item.price * 100)
+            quantity = item.quantity
+            total_amount += unit_amount * quantity
             line_items.append({
                 'price_data': {
                     'currency': 'usd',
@@ -70,7 +78,7 @@ def create_checkout_session(data: CheckoutRequest):
                 'quantity': item.quantity,
             })
 
-        platform_fee = 1000
+        platform_fee = calculate_platform_fee(total_amount)
 
         session_args = {
             'payment_method_types': ['card'],
@@ -134,8 +142,6 @@ async def stripe_webhook(request: Request):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature")
     endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
-
-    # Step 1: Verify webhook signature
     try:
         event = stripe.Webhook.construct_event(
             payload,
@@ -149,7 +155,6 @@ async def stripe_webhook(request: Request):
         print("❌ Webhook Error: Invalid signature")
         raise HTTPException(status_code=400, detail="Invalid signature")
 
-    # Step 2: Detect account (Platform or Connected)
     connected_account = event.get("account", "platform")
 
     print("========================================")
@@ -157,10 +162,7 @@ async def stripe_webhook(request: Request):
     print(f"📌 Event Type: {event['type']}")
     print(f"🏪 Account ID: {connected_account}")
     print("========================================")
-
-    # Step 3: Handle different event types
-
-    # Checkout completed
+    
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
 
