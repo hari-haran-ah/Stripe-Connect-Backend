@@ -39,18 +39,18 @@ def calculate_platform_fee(amount):
 def home():
     return {"message": "Server is running"}
 
-from typing import List
+from typing import List , Optional
 
 # ----------- REQUEST MODELS -----------
 class CartItem(BaseModel):
     name: str
     price: float
     quantity: int
-    image: str
+    image: Optional[str] = None
 
 class CheckoutRequest(BaseModel):
     items: List[CartItem]
-    customer_id: str = None
+    customer_id: Optional[str] = None
 
 class PortalRequest(BaseModel):
     customer_id: str
